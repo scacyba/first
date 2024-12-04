@@ -553,6 +553,7 @@ else
 
   ## Optional Permissions (Might be required if audit-logging is enabled)
   ### KMS
+echo "kmsKeyId:${kmsKeyId}"  #==========================================================
   if [[ ! "${kmsKeyId}" = "null" ]]; then
     printf "${COLOR_DEFAULT}     -----\n"
     kmsDecrypt="kms:Decrypt"
@@ -565,6 +566,7 @@ else
     showEvalResult "${kmsEvalResult}" "${kmsDecrypt}"
   fi
   ### S3 Bucket
+echo "s3BucketName:${s3BucketName}"  #==========================================================
   if [[ ! "${s3BucketName}" = "null" ]]; then
     printf "${COLOR_DEFAULT}     -----\n"
     s3PutObject="s3:PutObject"
@@ -594,6 +596,7 @@ else
     fi
   fi
   ### CloudWatch Logs
+echo "cloudWatchLogGroupName:${cloudWatchLogGroupName}"  #==========================================================
   if [[ ! "${cloudWatchLogGroupName}" = "null" ]]; then
     printf "${COLOR_DEFAULT}     -----\n"
     # For Resource "*"
@@ -627,7 +630,10 @@ fi
 # If there is any VPC Endpoints configured for the task VPC, we assume you would need an additional SSM PrivateLink to be configured. (yellow)
 # TODO: In the ideal world, the script should simply check if the task can reach to the internet or not :)
 requiredEndpoint="com.amazonaws.${AWS_REGION}.ssmmessages"
-taskNetworkingAttachment=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[0]")
+echo "describedTaskJson:${describedTaskJson}"  #==========================================================
+#taskNetworkingAttachment=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[0]")
+taskNetworkingAttachment=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[] | select(.type==\"ElasticNetworkInterface\")")
+echo "taskNetworkingAttachment:${taskNetworkingAttachment}"  #==========================================================
 if [[ "${taskNetworkingAttachment}" = "null" ]]; then
   ## bridge/host networking (only for EC2)
   taskVpcId=$(echo "${describedContainerInstanceJson}" | jq -r ".containerInstances[0].attributes[] | select(.name==\"ecs.vpc-id\") | .value")
@@ -635,10 +641,16 @@ if [[ "${taskNetworkingAttachment}" = "null" ]]; then
   subnetJson=$(${AWS_CLI_BIN} ec2 describe-subnets --subnet-ids "${taskSubnetId}")
 else
   ## awsvpc networking (for both EC2 and Fargate)
-  taskSubnetId=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[0].details[] | select(.name==\"subnetId\") | .value")
+echo "describedTaskJson:${describedTaskJson}"  #==========================================================
+#  taskSubnetId=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[0].details[] | select(.name==\"subnetId\") | .value")
+  taskSubnetId=$(echo "${describedTaskJson}" | jq -r ".tasks[0].attachments[] | select(.type==\"ElasticNetworkInterface\") | .details[] | select(.name==\"subnetId\") | .value")
+echo "taskSubnetId:${taskSubnetId}"  #==========================================================
   subnetJson=$(${AWS_CLI_BIN} ec2 describe-subnets --subnet-ids "${taskSubnetId}")
+echo "subnetJson:${subnetJson}"  #==========================================================
   taskVpcId=$(echo "${subnetJson}" | jq -r ".Subnets[0].VpcId")
+echo "taskVpcId:${taskVpcId}"  #==========================================================
 fi
+
 ## Obtain the ownerID of subnet's owner to check if the subnet is shared via AWS RAM (which check-ecs-exec.sh doesn't support today)
 subnetOwnerId=$(echo "${subnetJson}" | jq -r ".Subnets[0].OwnerId")
 printf "${COLOR_DEFAULT}  VPC Endpoints          | "
