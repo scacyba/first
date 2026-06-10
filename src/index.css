@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background: white;
+  }
+
+  .quote-sheet {
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    box-shadow: none;
+  }
+}
